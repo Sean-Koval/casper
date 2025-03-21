@@ -1,0 +1,33 @@
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+
+# System dependencies
+RUN apt-get update && apt-get install -y \
+    python3-pip \
+    python3-dev \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a working directory
+WORKDIR /app
+
+# Copy requirements file
+COPY requirements.txt .
+
+# Install requirements
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+# Copy necessary files
+COPY create_test_audio.py .
+COPY gpu_test_basic.py .
+
+# Create test script
+RUN echo '#!/bin/bash\n\
+echo "=== GPU TEST IN DOCKER ==="\n\
+python3 create_test_audio.py\n\
+python3 gpu_test_basic.py\n\
+echo ""\n\
+echo "=== TESTING WHISPER ==="\n\
+pip install faster-whisper\n\
+python3 -c "from faster_whisper import WhisperModel; import torch; print(f\"CUDA available: {torch.cuda.is_available()}\"); model = WhisperModel(\"tiny\", device=\"cuda\", compute_type=\"float16\"); segments, info = model.transcribe(\"test_tone.wav\", word_timestamps=True); print(f\"Language detected: {info.language}\"); print(\"Transcription:\")"' > /app/test.sh && chmod +x /app/test.sh
+
+CMD ["/app/test.sh"]

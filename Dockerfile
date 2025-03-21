@@ -17,4 +17,17 @@ RUN pip3 install --no-cache-dir -r requirements.txt \
 WORKDIR /app
 COPY . .
 
-CMD ["python3", "infer.py"]
+# Create directories for input and output
+RUN mkdir -p /data/input /data/output
+
+# Install the package in development mode
+RUN pip install -e .
+
+# Make the script executable
+RUN chmod +x /app/casper.py
+
+# Set the entrypoint to run the transcription pipeline
+ENTRYPOINT ["python3", "/app/casper.py", "--input", "/data/input", "--output", "/data/output"]
+
+# Default command (can be overridden)
+CMD ["--model", "tiny"]

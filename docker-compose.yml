@@ -1,0 +1,18 @@
+version: '3'
+
+services:
+  transcription-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./data/input:/data/input
+      - ./data/output:/data/output
+    command: ["--model", "tiny", "--device", "cuda", "--compute-type", "float16"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
