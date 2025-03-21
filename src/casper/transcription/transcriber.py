@@ -1,7 +1,7 @@
 import os
 import time
 import torch
-from faster_whisper import WhisperModel
+from faster_whisper import WhisperModel, BatchedInferencePipeline
 import csv
 import json
 
@@ -31,6 +31,7 @@ class Transcriber:
             
         self.model_size = model_size
         self.model = None
+        self.batched_model = None
         
     def load_model(self):
         """Load the Whisper model"""
@@ -42,7 +43,7 @@ class Transcriber:
             device=self.device,
             compute_type=self.compute_type,
         )
-        
+        self.batched_model = BatchedInferencePipeline(model=self.model)
         model_load_time = time.time() - model_start
         print(f"Model loaded in {model_load_time:.2f} seconds")
         
@@ -64,7 +65,9 @@ class Transcriber:
         try:
             # Transcribe the audio
             transcribe_start = time.time()
-            segments, info = self.model.transcribe(audio_path, word_timestamps=True)
+            #segments, info = self.model.transcribe(audio_path, word_timestamps=True)
+            segments, info = self.batched_model.transcribe(audio_path, word_timestamps=True, batch_size=16, beam_size=5)
+
             segments = list(segments)
             transcribe_time = time.time() - transcribe_start
             

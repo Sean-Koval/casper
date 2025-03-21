@@ -5,6 +5,7 @@ import json
 import time
 from datetime import datetime
 import logging
+from tqdm import tqdm
 from .transcriber import Transcriber
 
 # Configure logging
@@ -124,7 +125,7 @@ class TranscriptionPipeline:
         logger.info(f"Finished processing {filename} in {processing_time:.2f}s")
         return result
         
-    def process_person_folder(self, person_folder):
+    def process_person_folder(self, person_folder, total_files):
         """
         Process all audio files in a person's folder
         
@@ -144,14 +145,14 @@ class TranscriptionPipeline:
         results = []
         audio_file_count = 0
         
-        for filename in os.listdir(person_folder):
+        for filename in tqdm(os.listdir(person_folder), desc=f"Processing {folder_name}", total=len(os.listdir(person_folder)), unit="files"):
             file_path = os.path.join(person_folder, filename)
             
             if os.path.isfile(file_path) and self.is_audio_file(filename):
                 audio_file_count += 1
                 result = self.process_file(file_path, folder_name)
                 results.append(result)
-        
+                tqdm.write(f"Processed {self.stats['total_files_processed']} files across {self.stats['total_files_processed']} out of {total_files}.")
         # Create a single CSV for the folder with all transcriptions
         if results:
             csv_path = os.path.join(person_output_dir, f"{folder_name}_transcriptions.csv")
@@ -174,7 +175,9 @@ class TranscriptionPipeline:
                     row = {
                         'filename': os.path.basename(result.get('original_path', '')),
                         'processing_time': f"{result.get('processing_time', 0):.2f}",
-                        'timestamp': result.get('timestamp', '')
+                        'timestamp': result.get('timestamp', ''),
+                        'error': result.get('error', '')  # Ensure error is always present
+
                     }
                     
                     if 'error' in result:
@@ -329,7 +332,17 @@ class TranscriptionPipeline:
         
         # Load the transcription model
         self.transcriber.load_model()
-        
+
+        # Count total number of audio files
+        total_files = 0
+        for item in os.listdir(self.input_dir):
+            person_folder = os.path.join(self.input_dir, item)
+            if os.path.isdir(person_folder):
+                for filename in os.listdir(person_folder):
+                    file_path = os.path.join(person_folder, filename)
+                    if os.path.isfile(file_path) and self.is_audio_file(filename):
+                        total_files += 1
+
         # Process each person's folder
         folders_processed = 0
         for item in os.listdir(self.input_dir):
@@ -337,7 +350,7 @@ class TranscriptionPipeline:
             
             if os.path.isdir(person_folder):
                 folders_processed += 1
-                self.process_person_folder(person_folder)
+                self.process_person_folder(person_folder, total_files)
         
         self.stats['end_time'] = datetime.now()
         
